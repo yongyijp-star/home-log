@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ほめログ</title>
+  <style>
+    :root { --fg:#111; --muted:#666; --bg:#fafafa; --card:#fff; --border:#e6e6e6; }
+    body { margin:0; font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; background:var(--bg); color:var(--fg); }
+    .wrap { max-width: 820px; margin: 0 auto; padding: 28px 18px 40px; }
+    h1 { font-size: 22px; margin: 0 0 10px; }
+    p.lead { margin: 0 0 18px; color: var(--muted); line-height: 1.6; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 18px; box-shadow: 0 2px 10px rgba(0,0,0,.03); }
+
+    .scale { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin-bottom:4px; }
+    .row { display:flex; gap:12px; flex-wrap: wrap; align-items:center; }
+    .row + .row { margin-top: 12px; }
+    input[type="range"] { width: 100%; }
+
+    button {
+      appearance: none;
+      border: 1px solid var(--border);
+      background:#111;
+      color:#fff;
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button.secondary { background:#fff; color:#111; }
+    button:disabled { opacity:.45; cursor:not-allowed; }
+
+    .quoteBox { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; }
+    .quote { font-size: 20px; line-height: 1.7; margin: 0 0 10px; }
+    .meta { color: var(--muted); font-size: 13px; line-height: 1.6; }
+    footer { margin-top: 14px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+    .hint { font-size: 13px; color: var(--muted); }
+  </style>
+</head>
+
+<body>
+<div class="wrap">
+  <h1>ほめログ</h1>
+  <p class="lead">今日の自分、どれくらい頑張れたと思う？</p>
+
+  <div class="card">
+    <div class="scale" aria-hidden="true">
+      <span>頑張れなかった</span>
+      <span>頑張れた</span>
+    </div>
+
+    <div class="row">
+      <input id="slider" type="range" min="0" max="100" step="1" value="50" />
+    </div>
+
+    <div class="row">
+      <span class="hint" id="movedHint">※スライダーを動かしてください</span>
+    </div>
+
+    <div class="row">
+      <button id="btnPick" disabled>言葉を受け取る</button>
+      <button id="btnCopy" class="secondary" disabled>結果をコピー</button>
+    </div>
+
+    <div class="quoteBox">
+      <p class="quote" id="quoteText">—</p>
+      <div class="meta" id="quoteMeta">—</div>
+    </div>
+
+    <footer>
+      ※表示される台詞は、アップロードされたExcel「アプリ用セリフ一覧」から読み取って組み込んでいます。<br/>
+      ※レンジ分けは、全体が偏らないように自動で5分割しています（低→高）。
+    </footer>
+  </div>
+</div>
+
+<script>
+const quotes = [
+  {min:0,max:20,text:"完璧な生命か…世界には完璧などというものは存在しない。完璧であれば知恵も創造も立ち入る隙がないということだ。",source:"BLEACH（涅マユリ）"},
+  {min:61,max:80,text:"何かを望んでそれに向かって努力することが自分であるってことだ。その過程全てが唯一無二であるってことだ。",source:"ギルティクラウン（桜満集）"},
+  {min:0,max:20,text:"自分の力はこんなものではないと信じてひたすら道を進んでいくことは、辛く苦しい道であるかもしれないけれど。",source:"ハイキュー!!（及川徹）"},
+  {min:81,max:100,text:"才能が開花のチャンスを掴むのは今日かもしれない。ないと思ってたら多分一生ない。",source:"ハイキュー!!（及川徹）"},
+  {min:81,max:100,text:"失う覚悟のない人間に夢なんかつかめるわけない。",source:"黒子のバスケ（火神大我）"},
+  {min:81,max:100,text:"お前の足は上がってるんだろ？前に進むためにそうしたんだろ。だったらその足を踏み出す以外に何があるんだよ。",source:"宇宙兄弟（南波六太）"},
+  {min:0,max:20,text:"自分がそうするべきだと思ったことから1度でも逃げたら、きっと本当に戦わなきゃいけない時にも逃げるようになる。",source:"ソードアート・オンライン（キリト）"},
+  {min:0,max:20,text:"歯車には歯車の意地がある。自分で自分を決められるたった1つの部品だ、なくすなよ。",source:"機動戦士ガンダムOO（イアン）"},
+  {min:0,max:20,text:"本気の失敗には価値がある。",source:"宇宙兄弟（南波日々人）"},
+  {min:0,max:20,text:"負けたことがあるというのは、大きな財産になる。",source:"SLAM DUNK（堂本監督）"},
+  {min:0,max:20,text:"周りと比べるから見えにくいだけだ。人と比べた順位だけが結果じゃない。意味ないなんて否定するな。",source:"3月のライオン（二海堂晴信）"},
+  {min:81,max:100,text:"人は戦うことをやめた時初めて敗北する。戦い続ける限りはまだ負けてない。",source:"進撃の巨人（ミケ）"},
+  {min:81,max:100,text:"可能性がゼロになるとすればそれは諦めた時です。自分からゼロにするのだけは嫌なんです。",source:"黒子のバスケ（黒子テツヤ）"},
+  {min:81,max:100,text:"夢って破れて後悔するなら納得できる。夢を追わなかったことに後悔したくない。",source:"俺ガイル（比企谷八幡）"},
+  {min:81,max:100,text:"強くなければ生きていけないのか？違うだろ、生きていくことが強さなんだ。",source:"鋼の錬金術師（エドワード）"},
+  {min:81,max:100,text:"思い込みだけが現実の理不尽を突破し、不可能を可能にし、自分を前に進める。",source:"宇宙兄弟（南波六太）"},
+  {min:0,max:20,text:"生きることは失うものを数えることではなく、大切なものを増やしていくことだって思うんだ。",source:"四月は君の嘘（宮園かをり）"},
+  {min:61,max:80,text:"動くべき時に動けるか。それができる人間は一握りだ。",source:"アイシールド21（ヒル魔）"},
+  {min:81,max:100,text:"人の夢は、終わらねえ！",source:"ONE PIECE（ティーチ）"},
+  {min:0,max:20,text:"自分を殺すな。お前を輝かせるのはお前しかいないんだ。信用しろ、お前は大丈夫だ。",source:"宇宙兄弟（金子シャロン）"},
+  {min:0,max:20,text:"この世は通過するだけのものだから、あまり力む必要ないよ。",source:"水木しげる（白街）（水木しげる）"},
+  {min:0,max:20,text:"あったかい布団でぐっすり眠る。こんな楽しいことが他にあるか。これに感謝しなきゃいけない。",source:"ドラえもん（のび太）"},
+  {min:21,max:40,text:"自分はバカだと言ってると本当にバカになるぞ。言葉には魂が宿る。",source:"ドラゴン桜（桜木建二）"},
+  {min:21,max:40,text:"生まれちゃったらよ、生きていかなきゃなんねえんだよな。つれえよな。",source:"アシュラ（作中セリフ）"},
+  {min:21,max:40,text:"寝る時間分だけ長生きするんです。幸せなんか睡眠力から湧いてくる。",source:"水木しげる（睡眠の力）（水木しげる）"},
+  {min:21,max:40,text:"カウンセリングが必要なのは、いじめられてる人じゃなくいじめてる方だ。",source:"いじめの心理（ネットの声）"},
+  {min:0,max:20,text:"落ちこぼれのどこが悪い。世の中ウルトラマンやゴジラばっかりじゃないわ。",source:"キン肉マン（テリーマン）"},
+  {min:21,max:40,text:"人が最も残酷になる時は正義の側に立ったと思った時。加虐のブレーキが壊れるのだ。",source:"心理捜査官ギレン（作中セリフ）"},
+  {min:21,max:40,text:"お説教を聞きたくて相談したんじゃない。",source:"ドラえもん（のび太）"},
+  {min:21,max:40,text:"忘れろ。何か他の楽しいことを考えるんだ。",source:"ドラえもん（ドラえもん）"},
+  {min:61,max:80,text:"ブランド価値判断ができねえやつは、高ければ高いほど価値があるものって信じ込む。",source:"闇金ウシジマくん（丑嶋馨）"},
+  {min:81,max:100,text:"夢を持つということは、同時に現実と戦うことになるのを覚悟することだと思うよ。",source:"銀の匙（校長）"},
+  {min:61,max:80,text:"遊んで食べて寝てるだけだよ。なんで悪いの？自分が何もしなくて生きていける環境に感謝。",source:"コジコジ（コジコジ）"},
+  {min:21,max:40,text:"正義か、そんなもんはこの世の中にありはしない。生まれた国や時代でコロコロ変わる。",source:"手塚治虫作品（作中セリフ）"},
+  {min:61,max:80,text:"どっちも自分が正しいと思ってる。戦争なんてそんなもん。正義の反対は違う正義。",source:"機動戦士ガンダム（作中セリフ）"},
+  {min:21,max:40,text:"世間はバカとブスには冷たいからね。もっと早く気づきたかった。",source:"ドラゴン桜（桜木建二）"},
+  {min:21,max:40,text:"あんたは私を正義と言ったがそんなつもりはない。たまたま嫌いなやつに悪党が多いだけの話さ。",source:"幽☆遊☆白書（幻海）"},
+  {min:21,max:40,text:"ニコニコしてるんだよ、そしたら本当に幸せになれる。",source:"ドラえもん（ドラえもん）"},
+  {min:81,max:100,text:"戦わなければ勝てない。現実は甘くない。",source:"進撃の巨人（エレン）"},
+  {min:81,max:100,text:"たとえ勝てなくても勝つ、勝てば負けないんだ。",source:"すごいよ!!マサルさん（花中島マサル）"},
+  {min:21,max:40,text:"人と比べても大して幸せにはなれない。人を落とすんじゃなくて自分が登りなさい。",source:"プライド（一条ゆかり）"},
+  {min:21,max:40,text:"女はな、旦那の妊娠中の言動と料理の感想は一生忘れないらしいからな。",source:"アフロ田中（田中広）"},
+  {min:21,max:40,text:"いじめる方はいつだって冗談でも、いじめられる方はいつだって本気だ。",source:"SKET DANCE（作中セリフ）"},
+  {min:21,max:40,text:"くだらねえことを気にして人と比べてるような奴が真の負け組なんだよ。",source:"ボーボボ（首領パッチ）"},
+  {min:0,max:20,text:"恥ずかしげもなく地球のためにという人間が嫌いだ。地球は初めから泣きも笑いもしない。",source:"地球の平和について（作中セリフ）"},
+  {min:21,max:40,text:"俺は俺のことを好きな人が好きだ。全部どうでもいいから自分で決められない。",source:"俺の持論（ネットの声）"},
+  {min:21,max:40,text:"愚痴も弱音も言う人次第で汚くもなるし綺麗にもなる。",source:"ちひろさん（ちひろ）"},
+  {min:21,max:40,text:"みんな何かに酔っ払ってねえとやってらんなかったんだな。",source:"進撃の巨人（ケニー）"},
+  {min:21,max:40,text:"卑猥こそ最高の魅力じゃないですか。人間の三大欲求、生存本能。",source:"卑猥の真理（ネットの声）"},
+  {min:21,max:40,text:"批評の権利があれば、僕にだって怒る権利がある。それでこの一件はおしまい。",source:"エスパパ（藤子F不二雄）"},
+  {min:0,max:20,text:"生きるための逃げはありです。ありありです。今日から回避力と呼ぼう。",source:"銀の匙（校長）"},
+  {min:61,max:80,text:"当たり前なことができなくて当たり前。だってまだ親子になって3日なんだもん。",source:"育児の真理（ネットの声）"},
+  {min:61,max:80,text:"いじめの証拠なんて出てくるわけがない。当たり前のことなのに。",source:"3月のライオン（作中セリフ）"},
+  {min:21,max:40,text:"田舎は友達になるより他人になる方が難しい。プライバシーがない。",source:"呪術廻戦（釘崎野薔薇）"},
+  {min:0,max:20,text:"暇って人をダメにする。仕事に縛られることで人は人らしく生きられる。",source:"暇と労働（ネットの声）"},
+  {min:21,max:40,text:"君は人のことをあれこれ言えるほど立派じゃないだろう。",source:"ドラえもん（ドラえもん）"},
+  {min:0,max:20,text:"飛べない時はゆっくり休めばいいじゃん。仕方ないよ、飛べないんだから。",source:"さくらももこ（コジコジ）"},
+  {min:41,max:60,text:"自ら何もしなければ、人はただ年を取った子供でしかない。",source:"自立の心理（加藤諦三）"},
+  {min:41,max:60,text:"暗い美人より明るいブスの方がマシ。楽しく生きてた方が得。",source:"青春の真理（ネットの声）"},
+  {min:41,max:60,text:"冗談というのはみんなで愉快に笑えることを言うのです。人を馬鹿にするのは冗談ではない。",source:"アルプスの少女ハイジ（おんじ）"},
+  {min:0,max:20,text:"老いることも死ぬことも、人間という儚い生き物の美しさだ。",source:"鬼滅の刃（煉獄杏寿郎）"},
+  {min:81,max:100,text:"自分のできないことを他人に入るな。当たり前の基準を押し付けるな。",source:"動物のお医者さん（ハムテルの祖母）"},
+  {min:0,max:20,text:"ひもじい、寒い、もう死にたい。不幸はこの順番できます。温かいものを食べよう。",source:"じゃりン子チエ（おばあちゃん）"},
+  {min:41,max:60,text:"男なら幸せになろうなんて思うな。幸せになるのは女子供だけでいい。",source:"男塾（江田島平八）"},
+  {min:41,max:60,text:"何度繰り返しても学ぶことを知らない人間は愚かで悲しい生き物だ。",source:"鋼の錬金術師（作中セリフ）"},
+  {min:41,max:60,text:"クレームをつけてくる奴は、無能に暇を持て余して、プライライドだけ高いクズだ。",source:"クレーマーの真理（ネットの声）"},
+  {min:41,max:60,text:"自分の力で周りを動かしているつもりだろうが、実際は誰かが察して我慢している。",source:"宝石の国（作中セリフ）"},
+  {min:81,max:100,text:"人類最強の敵「めんどくさい」に打ち勝ち立派な大人になりたい。",source:"グリーンヒル（作中セリフ）"},
+  {min:0,max:20,text:"どこも痛くない時の幸せは、どこか痛い時にしか気づけないもの。",source:"健康の真理（ネットの声）"},
+  {min:41,max:60,text:"好きなことしかしないのは、楽しいことばかりというのとイコールではない。",source:"好きなことの真理（パラキス）"},
+  {min:41,max:60,text:"下手くその上級者への道のりは、己が下手さを知りて一歩目。",source:"SLAM DUNK（安西先生）"},
+  {min:41,max:60,text:"人の評価で心を満たそうとする人間は、一瞬しか幸せにはなれない。",source:"評価の真理（プロゴルファー猿）"},
+  {min:81,max:100,text:"感情のコントロールに性格は関係ない。習得できる技術だ。",source:"ヒカルの碁（越智浩平）"},
+  {min:0,max:20,text:"免許は本来してはいけないものを条件付きで許可されているもの。",source:"交通の真理（ネットの声）"},
+  {min:0,max:20,text:"人と違う生き方はそれなりにしんどいぞ。何があっても人のせいにできないからね。",source:"耳をすませば（雫の父）"},
+  {min:41,max:60,text:"できないは半分やりたくない。",source:"あたしンち（お母さん）"},
+  {min:41,max:60,text:"100%いいだけの結婚もなけりゃ100%悪いだけの結婚もない。",source:"結婚の真理（ネットの声）"},
+  {min:41,max:60,text:"腹が減って飯が食えるってすげえことだ。幸せってこれでいい。",source:"孤独のグルメ（井之頭五郎）"},
+  {min:81,max:100,text:"言い返さなかったら負けではない。考えずに受け流す。これは訓練で習得できる。",source:"不条理への対策（ネットの声）"},
+  {min:41,max:60,text:"不自由であることと不幸であることはイコールじゃない。哀れまれる言われはない。",source:"鋼の錬金術師（アルフォンス）"},
+  {min:41,max:60,text:"テンション上がらねえことにパワー使ってる場合じゃねえ。人生は短い。",source:"宇宙兄弟（南波六太）"},
+  {min:41,max:60,text:"今日逃げたら明日はもっと大きな勇気が必要になるぞ。",source:"7SEEDS（作中セリフ）"},
+  {min:41,max:60,text:"好き嫌いじゃなくプロだから。最後は自分の仕事をしましょう。",source:"プロの自覚（プロの意識）"},
+  {min:41,max:60,text:"神か。最初に罪を考え出したつまらん男さ。",source:"罪の起源（作中セリフ）"},
+  {min:41,max:60,text:"自分から欲しがらないような人には、幸せになる権利なんか無いのよ。",source:"幸せの権利（作中セリフ）"},
+  {min:0,max:20,text:"愛ゆえに人は苦しまねばならぬ、愛ゆえに人は悲しまねばならぬ。",source:"北斗の拳（サウザー）"},
+  {min:41,max:60,text:"大概のことは知恵と工夫で乗り切れる。",source:"ザ・ファブル（佐藤明）"},
+  {min:41,max:60,text:"金魚と金魚の糞は友達やない。",source:"じゃりン子チエ（チエ）"},
+  {min:81,max:100,text:"トントン拍子に進めるのは、その道が自分に合ってる証拠。",source:"パラダイス・キス（作中セリフ）"},
+  {min:81,max:100,text:"自分を信じないやつに努力する価値はない。",source:"NARUTO（ガイ先生）"},
+  {min:81,max:100,text:"人類が1人以下まで減れば、人同士の争いは不可能になります。",source:"進撃の巨人（ピクシス）"},
+  {min:41,max:60,text:"ドレッシングが必要なのは、人間が生野菜を本質的に好きではない証拠。",source:"美味しんぼ（山岡士郎）"},
+  {min:41,max:60,text:"組織の鍵は副将が握る。",source:"幽☆遊☆白書（鴉）"},
+  {min:81,max:100,text:"世の中は何か欲しいと思ったらそのためにそれなりの努力をしないといけない。",source:"ドラえもん（ドラえもん）"},
+  {min:61,max:80,text:"正直で正しい人間が偉いに決まってる。元不良を甘やかすな。",source:"こち亀（両津勘吉）"},
+  {min:61,max:80,text:"書きたいものが決まった時にはもう帰る時間（寿命）。",source:"からくりサーカス（作中セリフ）"},
+  {min:61,max:80,text:"ボンカレーはどう作ってもうまいのだ。",source:"ブラック・ジャック（ブラックジャック）"},
+  {min:81,max:100,text:"諦めても終わらせてもらえない試合だってあるんだよ。人生とかね。",source:"裏道お兄さん（表田裏道）"},
+  {min:61,max:80,text:"安心を得るために生きる。",source:"ジョジョ 第3部（DIO）"},
+  {min:61,max:80,text:"父親が変わらない方が問題です。",source:"ミステリと言う勿れ（久能整）"},
+  {min:61,max:80,text:"下げる頭持ってなくていい。人を想う心は持て。",source:"東京リベンジャーズ（マイキー）"},
+  {min:61,max:80,text:"僕たちは肌の色も目の色も違う。でも僕たちは友達だ。それで十分じゃないか。",source:"金色のガッシュ!!（ガッシュ）"},
+  {min:61,max:80,text:"僕の魂は、いつも君と共にある。",source:"BANANA FISH（アッシュ）"},
+  {min:61,max:80,text:"小さな絶望の積み重ねが人を大人にするのです。",source:"呪術廻戦（七海建人）"},
+  {min:61,max:80,text:"落ちこぼれだって必死に努力すりゃエリートを超えることがある。",source:"ドラゴンボール（孫悟空）"},
+  {min:0,max:20,text:"傷つけ合いながら人を学び、自身を学ばないと人を思いやれない。",source:"フルーツバスケット（草摩由希）"},
+  {min:61,max:80,text:"俺たちの生きてきた人生は本物だ。何一つ嘘のない人生なんだよ。",source:"Angel Beats!（音無）"},
+  {min:61,max:80,text:"意地張って何が悪いの？私はそうやって生きてきた。間違ってないから。",source:"響け！ユーフォニアム（高坂麗奈）"},
+  {min:81,max:100,text:"覚悟とは、暗闇の荒野に進むべき道を切り開くことだ。",source:"ジョジョ 第5部（ジョルノ）"},
+  {min:61,max:80,text:"自分自身の魂に恥をかかせない生き方を選べばいい。",source:"十二国記（中嶋陽子）"},
+  {min:61,max:80,text:"最後を飾り立てる暇があるなら、最後まで美しく生きようじゃねーか。",source:"銀魂（坂田銀時）"},
+  {min:61,max:80,text:"誰かに負けるのはいい。でも、自分にだけは負けられない。",source:"Fate/stay night（衛宮士郎）"},
+  {min:81,max:100,text:"前向きのバカならまだ可能性があるが、後ろ向きならゼロだ。",source:"宇宙兄弟（南波六太）"}
+];
+
+const slider = document.getElementById("slider");
+const btnPick = document.getElementById("btnPick");
+const btnCopy = document.getElementById("btnCopy");
+const hint = document.getElementById("movedHint");
+const quoteText = document.getElementById("quoteText");
+const quoteMeta = document.getElementById("quoteMeta");
+
+let hasMoved = false;
+let hasPicked = false;
+let lastRendered = null;
+
+function candidatesFor(v){
+  return quotes.filter(q => v >= q.min && v <= q.max);
+}
+
+function pick(v){
+  const c = candidatesFor(v);
+  if (c.length === 0) return null;
+  return c[Math.floor(Math.random() * c.length)];
+}
+
+function render(){
+  const v = Number(slider.value);
+  const q = pick(v);
+
+  if (!q) {
+    quoteText.textContent = "（このレンジの台詞が未登録です）";
+    quoteMeta.textContent = "— Excelに台詞を追加してください";
+    btnCopy.disabled = true;
+    lastRendered = null;
+  } else {
+    lastRendered = q;
+    quoteText.textContent = `「${q.text}」`;
+    quoteMeta.textContent = `— 出典：${q.source}`;
+    btnCopy.disabled = false;
+  }
+
+  if (!hasPicked) {
+    hasPicked = true;
+    btnPick.textContent = "もう一度受け取る";
+    hint.textContent = "※位置を決めたら「もう一度受け取る」で更新できます";
+  }
+}
+
+slider.addEventListener("input", () => {
+  if (!hasMoved) {
+    hasMoved = true;
+    btnPick.disabled = false;
+    hint.textContent = "※「言葉を受け取る」を押してください";
+  } else if (hasPicked) {
+    hint.textContent = "※位置を決めたら「もう一度受け取る」で更新できます";
+  }
+});
+
+btnPick.addEventListener("click", () => render());
+
+btnCopy.addEventListener("click", async () => {
+  if (!lastRendered) return;
+  const t = `「${lastRendered.text}」\n— 出典：${lastRendered.source}`;
+  try {
+    await navigator.clipboard.writeText(t);
+    const old = btnCopy.textContent;
+    btnCopy.textContent = "コピーした！";
+    setTimeout(() => btnCopy.textContent = old, 900);
+  } catch (e) {
+    alert("コピーに失敗しました。");
+  }
+});
+</script>
+</body>
+</html>
